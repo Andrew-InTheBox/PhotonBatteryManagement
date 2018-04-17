@@ -10,6 +10,7 @@ int addLED = D4; // addressable LED, not currently used
 double current;
 double analogVoltage;
 int analogValue;
+int extTemp1;
 
 void setup() {
   pinMode(cSense, INPUT);
@@ -32,11 +33,10 @@ void loop() {
       Wire.endTransmission();    // stop transmitting
       Wire.requestFrom(8,2);     // Request 2 bytes from slave 8
       while(Wire.available()){
-        msb = Wire.read();  // first byte is most significant
-        lsb = Wire.read();  // second byte is least significant
+        lsb = Wire.read();  // first byte is most significant
+        msb = Wire.read();  // second byte is least significant
       }
-      //int voltage = (msb<<8) | (lsb); //Voltage in mV, 12bit resoultion
-      int voltage = ((msb & 0xFF) | (lsb & 0x0F) << 8);
+      int voltage = (msb<<8) | (lsb); //Voltage in mV, 12bit resoultion
       Serial.print("Cell ");
       Serial.print(cell);
       Serial.print(": ");
@@ -46,18 +46,29 @@ void loop() {
       Serial.print("msb: ");
       Serial.println(msb);
     }
-    analogValue = analogRead(cSense);
-    Serial.print("ADC value: ");
-    Serial.println(analogValue); //sensor is 45mV/A
-    analogVoltage = (analogValue * 0.000805861);
-    analogVoltage = (analogVoltage - 1.65);
-    current = (analogVoltage / 0.45);
-    Serial.print("analogVoltage: ");
-    Serial.println(analogVoltage);
-    Serial.print("Current: ");
-    Serial.println(current);
-    //current = (((analogValue * 3.3)/4095) - 0.5) * 100;
+    //other operations iterated by board
+    Wire.beginTransmission(8); // transmit to device #8 (BMB default I2C address)
+    Wire.write(board);          // talk to the first board
+    Wire.write(17);          // sends one byte
+    Wire.endTransmission();    // stop transmitting
+    Wire.requestFrom(8,1);     // Request 1 byte from slave 8
+    while(Wire.available()){
+        extTemp1 = Wire.read();  //byte is processed thermistor 1 temperature in deg C
+      }
+    Serial.print("TempSensor1: ");
+    Serial.println(extTemp1);
   }
+  
+  analogValue = analogRead(cSense);
+  Serial.print("ADC value: ");
+  Serial.println(analogValue); //sensor is 45mV/A
+  analogVoltage = (analogValue * 0.000805861);
+  analogVoltage = (analogVoltage - 1.65);
+  current = (analogVoltage / 0.45);
+  Serial.print("analogVoltage: ");
+  Serial.println(analogVoltage);
+  Serial.print("Current: ");
+  Serial.println(current);
   delay(1000);
 }
 
