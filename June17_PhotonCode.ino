@@ -1,4 +1,12 @@
+// This #include statement was automatically added by the Particle IDE.
 #include <application.h>
+#include <neopixel.h> 
+
+//Define neopixel related variables for LED
+#define PIXEL_PIN D4
+#define PIXEL_COUNT 12
+#define PIXEL_TYPE WS2812B
+Adafruit_NeoPixel strip(PIXEL_COUNT, PIXEL_PIN, PIXEL_TYPE);
 
 int numberOfBoards;
 int msb;
@@ -6,8 +14,8 @@ int lsb;
 int cSense = A0; // current sensor use as ADC
 int preCharge = D2; // precharge digital out
 int mainRelay = D3; // main relay digital out
-int addLED = D4; // addressable LED, not currently used
 int manOver = D5; //switch to override error state
+int myval = 0;
 double current; //holds current measurement
 double analogVoltage; //holds ADC for current measurement
 int analogValue; //raw ADC value from current sensor
@@ -18,14 +26,17 @@ enum masterState {ON,ERROR1,ERRORRESP}; //state machine possible states
 int measureDelay = 3000; //delay value for state machine
 masterState myState;  //need to call 'enum' here again?
 
+
 void setup() {
     pinMode(cSense, INPUT);
     pinMode(preCharge, OUTPUT);
     pinMode(mainRelay, OUTPUT);
     pinMode(manOver, INPUT_PULLUP);
-    pinMode(addLED, OUTPUT);
+    //pinMode(addLED, OUTPUT);
     Wire.begin(); // join i2c bus
     Serial.begin(9600);
+    strip.begin(); //initialize LED 
+    strip.show(); // Initialize all pixels to 'off'
     numberOfBoards = checkForBoards(); //Read how many boards are detected
     startUp(); //function below that precharge and sets initial state to 'ON'
     //delay(20000);
@@ -36,65 +47,85 @@ void setup() {
 
 
 void stateMachine() {
-    //while(FALSE){
+  //while(FALSE){
 
-    switch (myState) {
-    case ON: {
-        delay(1000);
-        //LED to 'good' indication
-        if (millis() - chrono >= measureDelay) {
-            Serial.println("ON state");
-            chrono = millis();
-            updateValues();
-            for (byte i=0; i < 12; i++) {
-                if (voltageArray[i] > 4100 | voltageArray[i] < 3300) {
-                    myState = ERROR1;
-                } else {
-                    myState = ON;
-                }
-            }
-            //write values to photon web function, or do within updateValues()
-        }
-        break;
-    }
-    case ERROR1: {
-        shutDown();
-        Serial.println("ERROR1 state");
-        int myval = 0;
-        myval = digitalRead(manOver);
-        Serial.print("OverrideValue: ");
-        Serial.println(myval);
-        if(myval == HIGH) {
-            myState = ERRORRESP;
-        }
-        //close relays
-        //notify
-        //LED to 'error' indication
-        break;
-    }
-    case ERRORRESP: {
-        //idle until manual switch closes to initiate override
-        //then close relays
-        //wait to allow charging etc then
+  switch (myState) {
+  case ON:
+    {
+      delay(1000);
 
-        if(millis() - chrono >= 5000) {
-            Serial.println("ERRORRESP state");
-            chrono = millis();
-            updateValues();
-            for (byte i=0; i < 12; i++) {
-                if (voltageArray[i] > 4100 | voltageArray[i] < 3300) {
-                    myState = ERROR1;
-                } else {
-                    myState = ON;
-                }
-            }
+      for (int i = 0; i < PIXEL_COUNT; i++) {
+        strip.setPixelColor(i, 0, 255, 0);
+        strip.show();
+      }
+
+      //LED to 'good' indication
+      if (millis() - chrono >= measureDelay) {
+        Serial.println("ON state");
+        chrono = millis();
+        updateValues();
+        for (byte i = 0; i < 12; i++) {
+          if (voltageArray[i] > 4100 | voltageArray[i] < 3300) {
+            myState = ERROR1;
+            break;
+          } else {
+            myState = ON;
+          }
         }
-        break;
+        //write values to photon web function, or do within updateValues()
+      }
+      break;
     }
+  case ERROR1:
+    {
+      shutDown();
+
+      for (int i = 0; i < PIXEL_COUNT; i++) {
+        strip.setPixelColor(i, 255, 0, 0);
+        strip.show();
+      }
+      updateValues();
+      Serial.println("ERROR1 state");
+      myval = digitalRead(manOver);
+      Serial.print("OverrideValue: ");
+      Serial.println(myval);
+      if (myval == HIGH) {
+        myState = ERRORRESP;
+      }
+      //close relays
+      //notify
+      //LED to 'error' indication
+      break;
+    }
+  case ERRORRESP:
+    {
+      //idle until manual switch closes to initiate override
+      //then close relays
+      //wait to allow charging etc then
+      startUp();
+      updateValues();
+      for (int i = 0; i < PIXEL_COUNT; i++) {
+        strip.setPixelColor(i, 255, 255, 0);
+        strip.show();
+      }
+      
+      Serial.println("ERROR-RESP state");
+      myval = digitalRead(manOver);
+      Serial.print("OverrideValue: ");
+      Serial.println(myval);
+      if (myval == LOW) {
+        myState = ON;
+      } else {
+        myState = ERRORRESP;
+      }
+
+      break;
 
     }
+
+  }
 }
-//}
+
 
 void loop() {
     stateMachine();
@@ -116,7 +147,7 @@ void updateValues() {
                 lsb = Wire.read();  // second byte is least significant
             }
             //int voltage = (msb<<8) | (lsb); //Voltage in mV, 12bit resoultion
-            voltageArray[cell-1] = ((msb & 0xFF) | (lsb & 0x0F) << 8);
+            voltageArray[cell-1] = ((msb & 0xFF) | (lsb & 0xFF) << 8);
             Serial.print("Cell ");
             Serial.print(cell);
             Serial.print(": ");
@@ -127,7 +158,7 @@ void updateValues() {
         analogValue = analogRead(cSense);
         analogVoltage = (analogValue * 0.000805861);
         analogVoltage = (analogVoltage - 1.65);
-        current = (analogVoltage / 0.45);
+        current = (analogVoltage / .045);
         Serial.print("AnalogVoltageCurrentSensor: ");
         Serial.println(analogVoltage);
         Serial.print("Current: ");
