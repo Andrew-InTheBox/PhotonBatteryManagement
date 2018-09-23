@@ -1,3 +1,4 @@
+
 // This #include statement was automatically added by the Particle IDE.
 #include <application.h>
 #include <neopixel.h> 
@@ -28,6 +29,11 @@ masterState myState;  //need to call 'enum' here again?
 
 
 void setup() {
+    
+    SYSTEM_MODE(SEMI_AUTOMATIC);
+
+    boolean connectToCloud = false;
+
     pinMode(cSense, INPUT);
     pinMode(preCharge, OUTPUT);
     pinMode(mainRelay, OUTPUT);
@@ -55,7 +61,7 @@ void stateMachine() {
       delay(1000);
 
       for (int i = 0; i < PIXEL_COUNT; i++) {
-        strip.setPixelColor(i, 0, 255, 0);
+        strip.setPixelColor(i, 0, 60, 0);
         strip.show();
       }
 
@@ -65,7 +71,7 @@ void stateMachine() {
         chrono = millis();
         updateValues();
         for (byte i = 0; i < 12; i++) {
-          if (voltageArray[i] > 4100 | voltageArray[i] < 3300) {
+          if (voltageArray[i] > 4100 | voltageArray[i] < 3600) {
             myState = ERROR1;
             break;
           } else {
@@ -81,7 +87,7 @@ void stateMachine() {
       shutDown();
 
       for (int i = 0; i < PIXEL_COUNT; i++) {
-        strip.setPixelColor(i, 255, 0, 0);
+        strip.setPixelColor(i, 100, 0, 0);
         strip.show();
       }
       updateValues();
@@ -105,7 +111,7 @@ void stateMachine() {
       startUp();
       updateValues();
       for (int i = 0; i < PIXEL_COUNT; i++) {
-        strip.setPixelColor(i, 255, 255, 0);
+        strip.setPixelColor(i, 100, 100, 0);
         strip.show();
       }
       
