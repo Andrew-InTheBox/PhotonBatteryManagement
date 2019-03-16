@@ -1,12 +1,16 @@
+// https://community.particle.io/t/photon-offline-mode/44126/5
 
-// This #include statement was automatically added by the Particle IDE.
-#include <application.h>
+#include <Particle.h>
 #include <neopixel.h> 
+
+SYSTEM_MODE(SEMI_AUTOMATIC)
+SYSTEM_THREAD(ENABLED)
 
 //Define neopixel related variables for LED
 #define PIXEL_PIN D4
 #define PIXEL_COUNT 12
 #define PIXEL_TYPE WS2812B
+
 Adafruit_NeoPixel strip(PIXEL_COUNT, PIXEL_PIN, PIXEL_TYPE);
 
 int numberOfBoards;
@@ -26,13 +30,10 @@ unsigned long chrono = millis(); //counter for state machine activities
 enum masterState {ON,ERROR1,ERRORRESP}; //state machine possible states
 int measureDelay = 3000; //delay value for state machine
 masterState myState;  //need to call 'enum' here again?
+boolean connectToCloud = false;
 
 
 void setup() {
-    
-    SYSTEM_MODE(SEMI_AUTOMATIC);
-
-    boolean connectToCloud = false;
 
     pinMode(cSense, INPUT);
     pinMode(preCharge, OUTPUT);
@@ -62,8 +63,8 @@ void stateMachine() {
 
       for (int i = 0; i < PIXEL_COUNT; i++) {
         strip.setPixelColor(i, 0, 60, 0);
-        strip.show();
       }
+      strip.show(); // 
 
       //LED to 'good' indication
       if (millis() - chrono >= measureDelay) {
@@ -71,7 +72,7 @@ void stateMachine() {
         chrono = millis();
         updateValues();
         for (byte i = 0; i < 12; i++) {
-          if (voltageArray[i] > 4100 | voltageArray[i] < 3600) {
+          if (voltageArray[i] > 4100 || voltageArray[i] < 3600) {
             myState = ERROR1;
             break;
           } else {
@@ -88,8 +89,9 @@ void stateMachine() {
 
       for (int i = 0; i < PIXEL_COUNT; i++) {
         strip.setPixelColor(i, 100, 0, 0);
-        strip.show();
       }
+  
+      strip.show();
       updateValues();
       Serial.println("ERROR1 state");
       myval = digitalRead(manOver);
@@ -112,8 +114,8 @@ void stateMachine() {
       updateValues();
       for (int i = 0; i < PIXEL_COUNT; i++) {
         strip.setPixelColor(i, 100, 100, 0);
-        strip.show();
       }
+      strip.show();
       
       Serial.println("ERROR-RESP state");
       myval = digitalRead(manOver);
@@ -148,6 +150,7 @@ void updateValues() {
             Wire.write(cell);          // sends one byte
             Wire.endTransmission();    // stop transmitting
             Wire.requestFrom(8,2);     // Request 2 bytes from slave 8
+            delay(10);
             while(Wire.available()) {
                 msb = Wire.read();  // first byte is most significant
                 lsb = Wire.read();  // second byte is least significant
@@ -175,6 +178,7 @@ void updateValues() {
         Wire.write(17);          // sends one byte
         Wire.endTransmission();    // stop transmitting
         Wire.requestFrom(8,1);     // Request 1 byte from slave 8
+        delay(10);
         while(Wire.available()) {
             extTemp1 = Wire.read();  // get temp sensor 1 data
         }
@@ -186,7 +190,7 @@ void updateValues() {
 
 void startUp() {
     digitalWrite(preCharge, HIGH);
-    delay(500);
+    delay(800);
     digitalWrite(mainRelay, HIGH);
     digitalWrite(preCharge, LOW);
     myState = ON;
@@ -205,12 +209,10 @@ byte checkForBoards() {
     Wire.endTransmission();    // send out write Command
 
     Wire.requestFrom(8,1);     // request 1 byte from device #8
+    delay(10);
     while(Wire.available()) {  // continue reading until buffer is empty
         boardNumber = Wire.read(); // read the information
     }
 
     return boardNumber;
 }
-
-
-
